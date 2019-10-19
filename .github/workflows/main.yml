@@ -29,48 +29,48 @@ jobs:
   smoke_tests: 
     name: Conducting Smoke Tests
     runs-on: ubuntu-latest
+    needs: rustup_nightly
     steps:
-      needs: rustup_nightly
       - uses: actions/checkout@master
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: Build & Bundle project
-        run:
-          npm run build
-      - name: NPM install dependencies for smoke-test
-        run: |
-          cd examples/${EXAMPLE_PROJECT}
-          npm install
-      - name: Run smoke tests
-        run: |
-          cd examples/${EXAMPLE_PROJECT}
-          npm run build
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Build & Bundle project
+      run:
+        npm run build
+    - name: NPM install dependencies for smoke-test
+      run: |
+        cd examples/${EXAMPLE_PROJECT}
+        npm install
+    - name: Run smoke tests
+      run: |
+        cd examples/${EXAMPLE_PROJECT}
+        npm run build
 
   dependency_cache:
     container:
       image: node:latest
     steps:
-      - name: Install Dependencies
-        run:
-          npm install --quiet
+    - name: Install Dependencies
+      run:
+        npm install --quiet
 
   analysis:
     container:
       image: node:latest
     steps:
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: Run linting.
-        run:
-          npm run ci:lint
-      - name: Run NSP Security Check.
-        run:
-          npm audit --quiet
-      - name: Validate Commit Messages
-        run:
-          npm run ci:lint:commits
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Run linting.
+      run:
+        npm run ci:lint
+    - name: Run NSP Security Check.
+      run:
+        npm audit --quiet
+    - name: Validate Commit Messages
+      run:
+        npm run ci:lint:commits
   
 
   #region CROSS-BUILD
@@ -78,21 +78,21 @@ jobs:
     container:
       image: node:8
     steps:
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: NPM Build  
-        run:
-          npm run build
-      - name: Run unit tests.
-        run:
-          npm run ci:coverage
-      - name: Submit coverage data to codecov. 
-        run: |
-          if [[ -z $CIRCLE_PULL_REQUEST ]]; then
-            bash <(curl -s https://codecov.io/bash)
-          fi
-        if: success()
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: NPM Build  
+      run:
+        npm run build
+    - name: Run unit tests.
+      run:
+        npm run ci:coverage
+    - name: Submit coverage data to codecov. 
+      run: |
+        if [[ -z $CIRCLE_PULL_REQUEST ]]; then
+          bash <(curl -s https://codecov.io/bash)
+        fi
+      if: success()
   
   node10-latest:
     container:
@@ -122,27 +122,27 @@ jobs:
       image: node:latest
     steps:
       - uses: actions/checkout@v1
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: Validate Commit Messages
-        run:
-          npm run release:validate
-      - name: Draft Releases to Github
-        run:
-          npm run ci:release
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Validate Commit Messages
+      run:
+        npm run release:validate
+    - name: Draft Releases to Github
+      run:
+        npm run ci:release
 
   publish:
     container:
       image: node:latest
     steps:
-      - name: set npm TOKEN
-        run:
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: Publish to NPM
-        run:
-          npm publish --verbose
+    - name: set npm TOKEN
+      run:
+        echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Publish to NPM
+      run:
+        npm publish --verbose
 #endregion
