@@ -1,0 +1,185 @@
+name: CI CD Workflow
+on: push
+jobs:
+  build:
+    name: Hello world action
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: ./action-a
+      env:
+        MY_NAME: "Mona"
+  
+  rustup_nightly: 
+    name: Install Cargo and Rust compiler
+    runs-on: ubuntu-latest
+    steps:
+      run: |
+        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+        curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.28.0
+        source $BASH_ENV
+        rustup target add wasm32-unknown-unknown
+
+  unit_tests: 
+    name: Running unit tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    # - restore_cache:
+    #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild  
+      run:
+        npm install --quiet
+    - name: NPM Build  
+      run:
+        npm run build
+    - name: Run unit tests.
+      run:
+        npm run ci:test
+  
+  smoke_tests: 
+    name: Conducting Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    # - checkout
+    # - restore_cache:
+    #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    # - - needs: *rustup_nightly #TODO: replace this when CircleCI can make steps reusable in multiple jobs
+    - needs: rustup_nightly
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Build & Bundle project
+      run:
+        npm run build
+    - name: NPM install dependencies for smoke-test
+      run: |
+        cd examples/${EXAMPLE_PROJECT}
+        npm install
+    - name: Run smoke tests
+      run: |
+        cd examples/${EXAMPLE_PROJECT}
+        npm run build
+
+  dependency_cache:
+    container:
+      image: node:latest
+    steps:
+      # - checkout
+      # - restore_cache:
+      #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: Install Dependencies
+      run:
+        npm install --quiet
+      # - save_cache:
+      #     key: dependency-cache-{{ checksum "package-lock.json" }}
+      #     paths:
+      #       - ./node_modules
+
+  analysis:
+    container:
+      image: node:latest
+    steps:
+      # - checkout
+      # - restore_cache:
+      #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Run linting.
+      run:
+        npm run ci:lint
+    - name: Run NSP Security Check.
+      run:
+        npm audit --quiet
+    - name: Validate Commit Messages
+      run:
+        npm run ci:lint:commits
+  
+
+  #region CROSS-BUILD
+  node8-latest:
+    container:
+      image: node:8
+    steps:
+      # - checkout
+      # - restore_cache:
+          # key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: NPM Build  
+      run:
+        npm run build
+    - name: Run unit tests.
+      run:
+        npm run ci:coverage
+    - name: Submit coverage data to codecov. 
+      run: |
+        if [[ -z $CIRCLE_PULL_REQUEST ]]; then
+          bash <(curl -s https://codecov.io/bash)
+        fi
+      if: success()
+  # node6-latest:
+  #   container:
+  #     image: node:6
+  #   - needs: *unit_tests
+  node10-latest:
+    container:
+      image: node:10
+    steps:
+      - uses: actions/checkout@v1
+      # - uses: actions/setup-node@v1
+      #   with:
+      #     node-version: 10
+      - needs: unit_tests
+  #endregion
+
+  #region TEST BY EXAMPLES
+  smoke-rust-vue:
+    container:
+      image: node:latest
+      env:
+        EXAMPLE_PROJECT: rust/vue
+    steps:
+      - uses: actions/checkout@v1
+      - needs: smoke_tests
+  #endregion
+
+  #region RELEASE VERSION
+  draft:
+    container:
+      image: node:latest
+    steps:
+      - uses: actions/checkout@v1
+      # - checkout
+      # - restore_cache:
+          # key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Validate Commit Messages
+      run:
+        npm run release:validate
+    - name: Draft Releases to Github
+      run:
+        npm run ci:release
+
+  publish:
+    container:
+      image: node:latest
+    steps:
+      # - checkout
+    - name: set npm TOKEN
+      run:
+        echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+    # - restore_cache:
+    #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: Publish to NPM
+      run:
+        npm publish --verbose
+#endregion

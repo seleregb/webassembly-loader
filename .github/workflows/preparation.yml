@@ -1,0 +1,62 @@
+name: Preparation
+on: 
+  push:
+    tags:
+      - /.*/
+jobs:
+  dependency_cache:
+    runs-on: ubuntu-latest
+    container:
+      image: node:latest
+    steps:
+      # - checkout
+      # - restore_cache:
+      #     key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: Install Dependencies
+      run:
+        npm install --quiet
+      # - save_cache:
+      #     key: dependency-cache-{{ checksum "package-lock.json" }}
+      #     paths:
+      #       - ./node_modules
+  analysis:
+    runs-on: ubuntu-latest
+    steps:
+      needs: dependency_cache
+
+  node8-latest:
+    runs-on: ubuntu-latest
+    container:
+      image: node:8
+    steps:
+      needs: analysis
+      # - checkout
+      # - restore_cache:
+          # key: dependency-cache-{{ checksum "package-lock.json" }}
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: NPM Build  
+      run:
+        npm run build
+    - name: Run unit tests.
+      run:
+        npm run ci:coverage
+    - name: Submit coverage data to codecov. 
+      run: |
+        if [[ -z $CIRCLE_PULL_REQUEST ]]; then
+          bash <(curl -s https://codecov.io/bash)
+        fi
+      if: success()
+
+  node10-latest:
+    runs-on: ubuntu-latest
+    container:
+      image: node:10
+    steps:
+      needs: [analysis, unit_tests]
+
+  smoke-rust-vue:
+    runs-on: ubuntu-latest
+    steps:
+      needs: node8-latest
