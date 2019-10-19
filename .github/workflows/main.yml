@@ -32,10 +32,6 @@ jobs:
     steps:
       needs: rustup_nightly
       - uses: actions/checkout@master
-      # - checkout
-      # - restore_cache:
-      #     key: dependency-cache-{{ checksum "package-lock.json" }}
-      # - - needs: *rustup_nightly #TODO: replace this when CircleCI can make steps reusable in multiple jobs
       - name: NPM Rebuild
         run:
           npm install --quiet

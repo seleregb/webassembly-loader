@@ -9,9 +9,10 @@ jobs:
     container:
       image: node:latest
     steps:
-      - name: Install Dependencies
-        run:
-          npm install --quiet
+    - name: Install Dependencies
+      run: |
+        npm install --quiet
+
   analysis:
     runs-on: ubuntu-latest
     needs: dependency_cache
@@ -20,30 +21,29 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: node:8
+    needs: analysis
     steps:
-      needs: analysis
-      - name: NPM Rebuild
-        run:
-          npm install --quiet
-      - name: NPM Build  
-        run:
-          npm run build
-      - name: Run unit tests.
-        run:
-          npm run ci:coverage
-      - name: Submit coverage data to codecov. 
-        run: |
-          if [[ -z $CIRCLE_PULL_REQUEST ]]; then
-            bash <(curl -s https://codecov.io/bash)
-          fi
-        if: success()
+    - name: NPM Rebuild
+      run:
+        npm install --quiet
+    - name: NPM Build  
+      run:
+        npm run build
+    - name: Run unit tests.
+      run:
+        npm run ci:coverage
+    - name: Submit coverage data to codecov. 
+      run: |
+        if [[ -z $CIRCLE_PULL_REQUEST ]]; then
+          bash <(curl -s https://codecov.io/bash)
+        fi
+      if: success()
 
   node10-latest:
     runs-on: ubuntu-latest
     container:
       image: node:10
-    steps:
-      needs: [analysis, unit_tests]
+    needs: [analysis, unit_tests]
 
   smoke-rust-vue:
     runs-on: ubuntu-latest
